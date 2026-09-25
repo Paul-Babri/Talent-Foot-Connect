@@ -4,6 +4,7 @@ import 'package:talent_foot_connect/models/feed_post.dart';
 import 'package:talent_foot_connect/models/talent_public_profile.dart';
 import 'package:talent_foot_connect/screens/offers_screen.dart';
 import 'package:talent_foot_connect/services/talent_service.dart';
+import 'package:talent_foot_connect/widgets/pro_locked_notice.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TalentPublicProfileScreen extends StatelessWidget {
@@ -546,7 +547,7 @@ class TalentPublicProfileScreen extends StatelessWidget {
           const _SectionTitle('Analyse de\nperformance'),
           const SizedBox(height: 20),
           if (!profile.performanceUnlocked)
-            _LockedPerformance(
+            ProLockedNotice(
               onUpgrade: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -784,45 +785,6 @@ class _HighlightCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _LockedPerformance extends StatelessWidget {
-  const _LockedPerformance({required this.onUpgrade});
-
-  final VoidCallback onUpgrade;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: TalentPublicProfileScreen._surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0x33FE6B00)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Réservé à l\'abonnement PRO (2 000 FCFA / mois).',
-            style: GoogleFonts.inter(
-              color: TalentPublicProfileScreen._textSecondary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: onUpgrade,
-            style: FilledButton.styleFrom(
-              backgroundColor: TalentPublicProfileScreen._orange,
-              foregroundColor: Colors.black,
-            ),
-            child: const Text('VOIR L\'OFFRE PRO'),
-          ),
-        ],
       ),
     );
   }
