@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:talent_foot_connect/models/feed_post.dart';
+import 'package:talent_foot_connect/models/publish_quota.dart';
+import 'package:talent_foot_connect/screens/offers_screen.dart';
 import 'package:talent_foot_connect/services/feed_service.dart';
 import 'package:talent_foot_connect/theme/app_colors.dart';
 import 'package:talent_foot_connect/widgets/register_widgets.dart';
@@ -81,6 +83,13 @@ class _CreateFeedPostScreenState extends State<CreateFeedPostScreen> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
+    } on QuotaExceeded catch (e) {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const OffersScreen()),
+      );
+      if (!mounted) return;
+      await showAppError(context, e.message);
     } catch (e) {
       if (!mounted) return;
       await showAppError(context, mapAuthError(e));

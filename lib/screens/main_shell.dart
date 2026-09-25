@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:talent_foot_connect/screens/home_screen.dart';
 import 'package:talent_foot_connect/screens/profile_screen.dart';
+import 'package:talent_foot_connect/screens/search_screen.dart';
 import 'package:talent_foot_connect/widgets/app_bottom_nav.dart';
 
 class MainShell extends StatefulWidget {
@@ -23,11 +24,7 @@ class _MainShellState extends State<MainShell> {
         index: _tabIndex(_tab),
         children: const [
           HomeScreen(),
-          _PlaceholderTab(
-            title: 'Recherche',
-            subtitle: 'Bientôt disponible',
-            icon: Icons.search,
-          ),
+          SearchScreen(),
           _PlaceholderTab(
             title: 'Messages',
             subtitle: 'Bientôt disponible',

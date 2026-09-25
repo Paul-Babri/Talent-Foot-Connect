@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:talent_foot_connect/models/app_role.dart';
 import 'package:talent_foot_connect/models/app_user_profile.dart';
+import 'package:talent_foot_connect/screens/admin_dashboard_screen.dart';
 import 'package:talent_foot_connect/screens/create_feed_post_screen.dart';
+import 'package:talent_foot_connect/screens/offers_screen.dart';
 import 'package:talent_foot_connect/screens/player_account_screen.dart';
+import 'package:talent_foot_connect/screens/talent_public_profile_screen.dart';
 import 'package:talent_foot_connect/screens/welcome_screen.dart';
+import 'package:talent_foot_connect/services/admin_service.dart';
 import 'package:talent_foot_connect/services/auth_service.dart';
 import 'package:talent_foot_connect/services/profile_service.dart';
+import 'package:talent_foot_connect/services/social_service.dart';
+import 'package:talent_foot_connect/services/talent_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,12 +33,17 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _profileService = ProfileService();
+  final _admin = AdminService();
   late Future<AppUserProfile?> _future;
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
     _future = _profileService.fetchCurrentProfile();
+    _admin.amIAdmin().then((value) {
+      if (mounted) setState(() => _isAdmin = value);
+    }).catchError((_) {});
   }
 
   Future<void> _reload() async {
@@ -124,13 +135,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               );
                             },
                           ),
-                        ],
-                        if (profile.role != AppRole.player) ...[
-                          const SizedBox(height: 32),
-                          const _SavedTalents(),
+                          _SettingsLink(
+                            icon: Icons.workspace_premium_outlined,
+                            title: 'Offres',
+                            subtitle: 'Vidéos supplémentaires ou abonnement PRO',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const OffersScreen(),
+                                ),
+                              );
+                            },
+                          ),
                         ],
                         const SizedBox(height: 32),
+                        const _FollowedPlayers(),
+                        const SizedBox(height: 32),
                         const _Management(),
+                        if (_isAdmin) ...[
+                          const SizedBox(height: 12),
+                          _SettingsLink(
+                            icon: Icons.dashboard_outlined,
+                            title: 'Tableau de bord',
+                            subtitle: 'Indicateurs, vérification et crédits',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const AdminDashboardScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         _LogoutButton(onDone: () {}),
                       ],
@@ -473,52 +509,73 @@ class _MonCompteOption extends StatelessWidget {
   }
 }
 
-class _SavedTalents extends StatelessWidget {
-  const _SavedTalents();
+class _FollowedPlayers extends StatefulWidget {
+  const _FollowedPlayers();
+
+  @override
+  State<_FollowedPlayers> createState() => _FollowedPlayersState();
+}
+
+class _FollowedPlayersState extends State<_FollowedPlayers> {
+  final _social = SocialService();
+  final _talents = TalentService();
+  late final Future<List<FollowedPlayer>> _future = _social.followedPlayers();
+
+  Future<void> _open(FollowedPlayer player) async {
+    final profile = await _talents.fetch(player.id);
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TalentPublicProfileScreen(profile: profile),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    const talents = [
-      _TalentData(name: 'L. Sanches', meta: 'AD • 17 ans', pot: '84 POT'),
-      _TalentData(name: 'D. Kovac', meta: 'DC • 19 ans', pot: '79 POT'),
-      _TalentData(name: 'E. Bauer', meta: 'GB • 18 ans', pot: '82 POT'),
-    ];
-
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              'Talents sauvegardés',
-              style: GoogleFonts.montserrat(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: ProfileScreen._textPrimary,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              'TOUT VOIR',
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.7,
-                color: ProfileScreen._mint,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 256,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: talents.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
-            itemBuilder: (context, index) {
-              return _TalentCard(data: talents[index]);
-            },
+        Text(
+          'Abonnements',
+          style: GoogleFonts.montserrat(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: ProfileScreen._textPrimary,
           ),
+        ),
+        const SizedBox(height: 12),
+        FutureBuilder<List<FollowedPlayer>>(
+          future: _future,
+          builder: (context, snapshot) {
+            final players = snapshot.data ?? const <FollowedPlayer>[];
+            if (players.isEmpty) {
+              return Text(
+                'Tu ne suis encore aucun joueur.',
+                style: GoogleFonts.inter(color: ProfileScreen._textMuted),
+              );
+            }
+            return Column(
+              children: [
+                for (final player in players)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    onTap: () => _open(player),
+                    title: Text(
+                      player.name,
+                      style: GoogleFonts.montserrat(
+                        color: ProfileScreen._textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${player.position} · ${player.age} ans',
+                      style: GoogleFonts.inter(color: ProfileScreen._textMuted),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -699,100 +756,6 @@ class _ProfileStat extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TalentData {
-  const _TalentData({
-    required this.name,
-    required this.meta,
-    required this.pot,
-  });
-
-  final String name;
-  final String meta;
-  final String pot;
-}
-
-class _TalentCard extends StatelessWidget {
-  const _TalentCard({required this.data});
-
-  final _TalentData data;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: 160,
-        height: 256,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset('assets/images/bg-stadium.jpg', fit: BoxFit.cover),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Color(0xE5000000),
-                    Color(0x33000000),
-                    Color(0x00000000),
-                  ],
-                  stops: [0.0, 0.5, 1.0],
-                ),
-              ),
-            ),
-            Positioned(
-              top: 8,
-              left: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0x99333535),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Text(
-                  data.pot,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: ProfileScreen._mint,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    data.name,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    data.meta,
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: ProfileScreen._textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

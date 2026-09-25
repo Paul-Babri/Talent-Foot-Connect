@@ -613,6 +613,12 @@ String mapAuthError(Object error) {
   final raw = error is AuthException ? error.message : error.toString();
   final lower = raw.toLowerCase();
 
+  if (lower.contains('quota_exceeded') || lower.contains('vidéos gratuites') || lower.contains('10 photos')) {
+    return 'Quota atteint. Passe à une offre pour publier davantage.';
+  }
+  if (lower.contains('contact_not_allowed') || lower.contains('coordonnées')) {
+    return 'Les commentaires ne peuvent pas contenir de numéro.';
+  }
   if (lower.contains('rate limit') || lower.contains('over_email_send')) {
     return 'Trop de tentatives d\'inscription. Attends une minute, '
         'utilise une autre adresse e-mail, ou désactive la confirmation '

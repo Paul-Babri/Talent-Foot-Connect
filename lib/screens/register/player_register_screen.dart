@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talent_foot_connect/screens/main_shell.dart';
 import 'package:talent_foot_connect/services/auth_service.dart';
+import 'package:talent_foot_connect/services/social_service.dart';
+import 'package:talent_foot_connect/services/talent_service.dart';
 import 'package:talent_foot_connect/widgets/register_widgets.dart';
 
 class PlayerRegisterScreen extends StatefulWidget {
@@ -31,6 +33,7 @@ class _PlayerRegisterScreenState extends State<PlayerRegisterScreen> {
   ];
 
   final _auth = AuthService();
+  final _talents = TalentService();
   final _name = TextEditingController();
   final _age = TextEditingController();
   final _phone = TextEditingController();
@@ -39,6 +42,12 @@ class _PlayerRegisterScreenState extends State<PlayerRegisterScreen> {
   final _height = TextEditingController();
   final _weight = TextEditingController();
   final _club = TextEditingController();
+  final _pastClub1 = TextEditingController();
+  final _pastYear1 = TextEditingController();
+  final _pastClub2 = TextEditingController();
+  final _pastYear2 = TextEditingController();
+  final _pastClub3 = TextEditingController();
+  final _pastYear3 = TextEditingController();
   final _academy = TextEditingController();
   final _city = TextEditingController();
   final _country = TextEditingController();
@@ -62,6 +71,12 @@ class _PlayerRegisterScreenState extends State<PlayerRegisterScreen> {
     _height.dispose();
     _weight.dispose();
     _club.dispose();
+    _pastClub1.dispose();
+    _pastYear1.dispose();
+    _pastClub2.dispose();
+    _pastYear2.dispose();
+    _pastClub3.dispose();
+    _pastYear3.dispose();
     _academy.dispose();
     _city.dispose();
     _country.dispose();
@@ -137,6 +152,17 @@ class _PlayerRegisterScreenState extends State<PlayerRegisterScreen> {
         photo: _photo,
         video: _video,
       );
+      final userId = _auth.currentUser?.id;
+      if (userId != null) {
+        await _talents.replaceClubHistory(
+          playerId: userId,
+          clubs: [
+            ClubEntry(name: _pastClub1.text, year: _pastYear1.text),
+            ClubEntry(name: _pastClub2.text, year: _pastYear2.text),
+            ClubEntry(name: _pastClub3.text, year: _pastYear3.text),
+          ],
+        );
+      }
       if (!mounted) return;
       await showAppSuccess(
         context,
@@ -298,9 +324,20 @@ class _PlayerRegisterScreenState extends State<PlayerRegisterScreen> {
         ),
         const SizedBox(height: 12),
         LabeledField(
-          label: 'CLUB',
-          child: AppTextField(controller: _club, hint: 'Académie FC'),
+          label: 'CLUB ACTUEL',
+          child: AppTextField(controller: _club, hint: 'Optionnel'),
         ),
+        const SizedBox(height: 12),
+        const StepTitle(
+          title: 'Anciens clubs',
+          subtitle: 'Optionnel : jusqu\'à trois clubs, avec l\'année.',
+        ),
+        const SizedBox(height: 12),
+        _PastClubFields(club: _pastClub1, year: _pastYear1, index: 1),
+        const SizedBox(height: 8),
+        _PastClubFields(club: _pastClub2, year: _pastYear2, index: 2),
+        const SizedBox(height: 8),
+        _PastClubFields(club: _pastClub3, year: _pastYear3, index: 3),
         const SizedBox(height: 12),
         LabeledField(
           label: 'ACADEMY',
@@ -373,6 +410,45 @@ class _PlayerRegisterScreenState extends State<PlayerRegisterScreen> {
           file: _video,
           isImage: false,
           onTap: _pickVideo,
+        ),
+      ],
+    );
+  }
+}
+
+class _PastClubFields extends StatelessWidget {
+  const _PastClubFields({
+    required this.club,
+    required this.year,
+    required this.index,
+  });
+
+  final TextEditingController club;
+  final TextEditingController year;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: LabeledField(
+            label: 'CLUB $index',
+            child: AppTextField(controller: club, hint: 'Ancien club'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: LabeledField(
+            label: 'ANNÉE',
+            child: AppTextField(
+              controller: year,
+              hint: '2022',
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            ),
+          ),
         ),
       ],
     );

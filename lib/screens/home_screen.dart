@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:talent_foot_connect/feed/feed_video_controller.dart';
 import 'package:talent_foot_connect/media/media_file_utils.dart';
 import 'package:talent_foot_connect/models/feed_post.dart';
+import 'package:talent_foot_connect/screens/comments_sheet.dart';
 import 'package:talent_foot_connect/screens/create_feed_post_screen.dart';
 import 'package:talent_foot_connect/screens/talent_public_profile_screen.dart';
 import 'package:talent_foot_connect/services/feed_service.dart';
-import 'package:talent_foot_connect/theme/app_colors.dart';
+import 'package:talent_foot_connect/services/social_service.dart';
+import 'package:talent_foot_connect/services/talent_service.dart';
 import 'package:talent_foot_connect/widgets/feed_media_player.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -23,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _feedService = FeedService();
+  final _social = SocialService();
+  final _talents = TalentService();
   final _pageController = PageController();
   final _video = FeedVideoController();
 
@@ -97,6 +102,74 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _video.activate(current.mediaUrl, volume: 1.0);
   }
 
+  Future<void> _toggleLike(FeedPost post) async {
+    final next = !post.likedByMe;
+    _replacePost(
+      post.copyWith(
+        likedByMe: next,
+        likesCount: post.likesCount + (next ? 1 : -1),
+      ),
+    );
+    try {
+      await _social.setLike(postId: post.id, like: next);
+    } catch (_) {
+      _replacePost(post);
+    }
+  }
+
+  Future<void> _toggleFollow(FeedPost post) async {
+    final next = !post.followedByMe;
+    _replacePost(
+      post.copyWith(
+        followedByMe: next,
+        followersCount: post.followersCount + (next ? 1 : -1),
+      ),
+    );
+    try {
+      await _social.setFollow(playerId: post.playerId, follow: next);
+    } catch (_) {
+      _replacePost(post);
+    }
+  }
+
+  void _replacePost(FeedPost post) {
+    if (!mounted) return;
+    setState(() {
+      _posts = [
+        for (final current in _posts)
+          if (current.id == post.id) post else current,
+      ];
+    });
+  }
+
+  Future<void> _openComments(FeedPost post) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF121414),
+      builder: (_) => CommentsSheet(postId: post.id),
+    );
+    if (mounted) await _reload();
+  }
+
+  Future<void> _share(FeedPost post) {
+    return SharePlus.instance.share(
+      ShareParams(
+        text: 'Découvre ${post.playerName} sur TalentFoot Connect',
+      ),
+    );
+  }
+
+  Future<void> _openProfile(FeedPost post) async {
+    final profile = await _talents.fetch(post.playerId);
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TalentPublicProfileScreen(profile: profile),
+      ),
+    );
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appActive = state == AppLifecycleState.resumed;
@@ -160,7 +233,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         );
                       }
 
-                      final posts = snapshot.data ?? _posts;
+                      final posts = _posts.isNotEmpty
+                          ? _posts
+                          : (snapshot.data ?? const <FeedPost>[]);
                       if (posts.isEmpty) {
                         return _EmptyFeed(
                           title: 'Aucun post pour le moment',
@@ -188,6 +263,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             isActive: isActive,
                             videoController: _video,
                             onRetryVideo: _syncActiveVideo,
+                            onLike: () => _toggleLike(post),
+                            onFollow: () => _toggleFollow(post),
+                            onComment: () => _openComments(post),
+                            onShare: () => _share(post),
+                            onOpenProfile: () => _openProfile(post),
                           );
                         },
                       );
@@ -354,12 +434,22 @@ class _FeedPage extends StatelessWidget {
     required this.post,
     required this.isActive,
     required this.videoController,
+    required this.onLike,
+    required this.onFollow,
+    required this.onComment,
+    required this.onShare,
+    required this.onOpenProfile,
     this.onRetryVideo,
   });
 
   final FeedPost post;
   final bool isActive;
   final FeedVideoController videoController;
+  final VoidCallback onLike;
+  final VoidCallback onFollow;
+  final VoidCallback onComment;
+  final VoidCallback onShare;
+  final VoidCallback onOpenProfile;
   final VoidCallback? onRetryVideo;
 
   @override
@@ -399,7 +489,14 @@ class _FeedPage extends StatelessWidget {
         Positioned(
           right: 12,
           bottom: 24,
-          child: _SideActions(post: post),
+          child: _SideActions(
+            post: post,
+            onLike: onLike,
+            onFollow: onFollow,
+            onComment: onComment,
+            onShare: onShare,
+            onOpenProfile: onOpenProfile,
+          ),
         ),
         if (post.mediaType == FeedMediaType.video)
           Positioned(
@@ -440,6 +537,14 @@ class _PlayerInfo extends StatelessWidget {
               color: HomeScreen.orangeSoft,
               border: const Color(0x33FFB693),
             ),
+            if (post.isPro) ...[
+              const SizedBox(width: 8),
+              const _Chip(
+                label: 'PRO',
+                color: HomeScreen.orangeSoft,
+                border: Color(0x33FFB693),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 8),
@@ -503,65 +608,68 @@ class _PlayerInfo extends StatelessWidget {
 }
 
 class _SideActions extends StatelessWidget {
-  const _SideActions({required this.post});
+  const _SideActions({
+    required this.post,
+    required this.onLike,
+    required this.onFollow,
+    required this.onComment,
+    required this.onShare,
+    required this.onOpenProfile,
+  });
 
   final FeedPost post;
+  final VoidCallback onLike;
+  final VoidCallback onFollow;
+  final VoidCallback onComment;
+  final VoidCallback onShare;
+  final VoidCallback onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const _SideAction(icon: Icons.person_add_alt_1, label: 'Suivre'),
+        _SideAction(
+          icon: post.followedByMe ? Icons.person : Icons.person_add_alt_1,
+          label: post.followedByMe ? 'Suivi' : 'Suivre',
+          onTap: onFollow,
+        ),
         const SizedBox(height: 20),
-        _SideAction(icon: Icons.favorite_border, label: '${post.likesCount}'),
+        _SideAction(
+          icon: post.likedByMe ? Icons.favorite : Icons.favorite_border,
+          label: '${post.likesCount}',
+          onTap: onLike,
+          color: post.likedByMe ? const Color(0xFFFE6B00) : Colors.white,
+        ),
         const SizedBox(height: 20),
-        const _SideAction(icon: Icons.chat_bubble_outline, label: '0'),
+        _SideAction(
+          icon: Icons.chat_bubble_outline,
+          label: '${post.commentsCount}',
+          onTap: onComment,
+        ),
         const SizedBox(height: 20),
-        const _SideAction(icon: Icons.ios_share, label: 'Partager'),
+        _SideAction(
+          icon: Icons.ios_share,
+          label: 'Partager',
+          onTap: onShare,
+        ),
         const SizedBox(height: 20),
-        _EyeButton(post: post),
+        _EyeButton(onTap: onOpenProfile),
       ],
     );
   }
 }
 
 class _EyeButton extends StatelessWidget {
-  const _EyeButton({required this.post});
+  const _EyeButton({required this.onTap});
 
-  final FeedPost post;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => TalentPublicProfileScreen(
-                profile: TalentPublicProfile.fromFeed(
-                  name: post.playerName,
-                  age: post.age,
-                  position: post.position ?? 'Joueur',
-                  badge: post.mediaType == FeedMediaType.video
-                      ? 'Highlight'
-                      : 'Photo',
-                  city: post.location,
-                  photoUrl: post.playerPhotoUrl ??
-                      (post.mediaType == FeedMediaType.image
-                          ? post.mediaUrl
-                          : null),
-                  stat1: '${post.goals}',
-                  stat1Label: 'BUTS',
-                  stat2: '${post.assists}',
-                  stat2Label: 'ASSISTS',
-                  stat3: post.age > 0 ? '${post.age}' : '0',
-                  stat3Label: 'ÂGE',
-                ),
-              ),
-            ),
-          );
-        },
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
           width: 48,
@@ -660,35 +768,45 @@ class _StatBubble extends StatelessWidget {
 }
 
 class _SideAction extends StatelessWidget {
-  const _SideAction({required this.icon, required this.label});
+  const _SideAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color = Colors.white,
+  });
 
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: const Color(0x66000000),
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0x33FFFFFF)),
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0x66000000),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0x33FFFFFF)),
+            ),
+            child: Icon(icon, color: color, size: 22),
           ),
-          child: Icon(icon, color: Colors.white, size: 22),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: GoogleFonts.jetBrainsMono(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

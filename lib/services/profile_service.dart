@@ -270,6 +270,8 @@ class ProfileService {
       'description': description,
     }..removeWhere((_, value) => value == null);
 
+    payload['club'] = club;
+
     await _client.from('player_profiles').upsert(payload);
 
     if (phone != null) {

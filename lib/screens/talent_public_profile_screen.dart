@@ -1,98 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-class TalentPublicProfile {
-  const TalentPublicProfile({
-    required this.name,
-    required this.age,
-    required this.position,
-    required this.badge,
-    required this.city,
-    required this.height,
-    required this.weight,
-    required this.strongFoot,
-    required this.prospectLabel,
-    required this.clubs,
-    required this.highlights,
-    required this.bars,
-    required this.radar,
-    this.photoUrl,
-  });
-
-  final String name;
-  final int age;
-  final String position;
-  final String badge;
-  final String city;
-  final String height;
-  final String weight;
-  final String strongFoot;
-  final String prospectLabel;
-  final List<({String club, String period})> clubs;
-  final List<String> highlights;
-  final List<({String label, int value})> bars;
-  final List<({String label, int value})> radar;
-  final String? photoUrl;
-
-  factory TalentPublicProfile.fromFeed({
-    required String name,
-    required int age,
-    required String position,
-    required String badge,
-    required String city,
-    required String stat1,
-    required String stat1Label,
-    required String stat2,
-    required String stat2Label,
-    required String stat3,
-    required String stat3Label,
-    String? photoUrl,
-  }) {
-    final s1 = int.tryParse(stat1) ?? 80;
-    final s2 = int.tryParse(stat2) ?? 80;
-    final s3 = int.tryParse(stat3) ?? 80;
-
-    return TalentPublicProfile(
-      name: name.toUpperCase(),
-      age: age,
-      position: position,
-      badge: badge,
-      city: city,
-      height: age >= 19 ? '184 cm' : '178 cm',
-      weight: age >= 19 ? '78 kg' : '72 kg',
-      strongFoot: 'Droit',
-      prospectLabel: 'TOP PROSPECT',
-      photoUrl: photoUrl,
-      clubs: const [
-        (club: 'Olympique Marseille U19', period: '2023 - Prés.'),
-        (club: 'Académie OM', period: '2019 - 2023'),
-      ],
-      highlights: const [
-        'Buts saison 23/24',
-        'Analyse tactique',
-        'Techniques de dribble',
-      ],
-      bars: [
-        (label: 'ACCÉLÉRATION', value: s1),
-        (label: 'FINITION', value: (s2 * 0.95).round().clamp(50, 99)),
-        (label: 'DRIBBLE', value: s2),
-        (label: 'VISION', value: s3),
-      ],
-      radar: [
-        (label: 'VIT.', value: s1),
-        (label: 'TIR', value: (s2 * 0.9).round().clamp(40, 99)),
-        (label: 'PASSE', value: s3),
-        (label: 'DRI', value: s2),
-        (
-          label: 'DÉF',
-          value: position.contains('Défenseur') || position.contains('Gardien')
-              ? 88
-              : 50,
-        ),
-      ],
-    );
-  }
-}
+import 'package:talent_foot_connect/models/feed_post.dart';
+import 'package:talent_foot_connect/models/talent_public_profile.dart';
+import 'package:talent_foot_connect/screens/offers_screen.dart';
+import 'package:talent_foot_connect/services/talent_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TalentPublicProfileScreen extends StatelessWidget {
   const TalentPublicProfileScreen({super.key, required this.profile});
@@ -133,7 +45,7 @@ class TalentPublicProfileScreen extends StatelessWidget {
                       const SizedBox(height: 28),
                       _buildHighlights(),
                       const SizedBox(height: 28),
-                      _buildPerformance(),
+                      _buildPerformance(context),
                     ],
                   ),
                 ),
@@ -303,13 +215,27 @@ class TalentPublicProfileScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      profile.name,
-                      style: GoogleFonts.montserrat(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            profile.name.toUpperCase(),
+                            style: GoogleFonts.montserrat(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        if (profile.verified) ...[
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.verified,
+                            color: _mint,
+                            size: 22,
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -355,6 +281,18 @@ class TalentPublicProfileScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _contact() async {
+    final url = profile.whatsappUrl;
+    if (url == null) return;
+    try {
+      await TalentService().recordContact(profile.playerId);
+    } catch (_) {}
+    await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
   void _openPhotoViewer(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder<void>(
@@ -386,9 +324,16 @@ class TalentPublicProfileScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0x1AFFFFFF)),
         ),
-        child: Row(
+        child: profile.bars.isEmpty
+            ? Text(
+                profile.performanceUnlocked
+                    ? 'Analyse pas encore renseignée.'
+                    : 'Analyse de performance réservée au PRO.',
+                style: GoogleFonts.inter(color: _textSecondary),
+              )
+            : Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: profile.radar
+          children: profile.bars
               .map(
                 (item) => Column(
                   children: [
@@ -451,7 +396,10 @@ class TalentPublicProfileScreen extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _InfoCard(label: 'PIED FORT', value: profile.strongFoot),
+                child: _InfoCard(
+                  label: 'ABONNÉS',
+                  value: '${profile.followersCount}',
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -481,6 +429,11 @@ class TalentPublicProfileScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (profile.clubs.isEmpty)
+                  Text(
+                    'Aucun club renseigné.',
+                    style: GoogleFonts.inter(color: _textSecondary),
+                  ),
                 ...profile.clubs.asMap().entries.map((entry) {
                   final club = entry.value;
                   final faded = entry.key > 0;
@@ -560,13 +513,23 @@ class TalentPublicProfileScreen extends StatelessWidget {
         const SizedBox(height: 16),
         SizedBox(
           height: 160,
-          child: ListView.separated(
+          child: profile.media.isEmpty
+              ? const SizedBox(
+                  height: 80,
+                  child: Center(
+                    child: Text(
+                      'Aucune photo ou vidéo publiée.',
+                      style: TextStyle(color: _textSecondary),
+                    ),
+                  ),
+                )
+              : ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
-            itemCount: profile.highlights.length,
+            itemCount: profile.media.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
-              return _HighlightCard(title: profile.highlights[index]);
+              return _HighlightCard(post: profile.media[index]);
             },
           ),
         ),
@@ -574,7 +537,7 @@ class TalentPublicProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPerformance() {
+  Widget _buildPerformance(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -582,7 +545,23 @@ class TalentPublicProfileScreen extends StatelessWidget {
         children: [
           const _SectionTitle('Analyse de\nperformance'),
           const SizedBox(height: 20),
-          ...profile.bars.map(
+          if (!profile.performanceUnlocked)
+            _LockedPerformance(
+              onUpgrade: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const OffersScreen(),
+                  ),
+                );
+              },
+            )
+          else if (profile.bars.isEmpty)
+            Text(
+              'Le joueur n\'a pas encore renseigné son analyse.',
+              style: GoogleFonts.inter(color: _textSecondary),
+            )
+          else
+            ...profile.bars.map(
             (bar) => Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: _StatBar(label: bar.label, value: bar.value),
@@ -636,7 +615,7 @@ class TalentPublicProfileScreen extends StatelessWidget {
             child: SizedBox(
               height: 54,
               child: FilledButton(
-                onPressed: () {},
+                onPressed: profile.whatsappUrl == null ? null : _contact,
                 style: FilledButton.styleFrom(
                   backgroundColor: _orange,
                   foregroundColor: Colors.black,
@@ -738,12 +717,13 @@ class _InfoCard extends StatelessWidget {
 }
 
 class _HighlightCard extends StatelessWidget {
-  const _HighlightCard({required this.title});
+  const _HighlightCard({required this.post});
 
-  final String title;
+  final FeedPost post;
 
   @override
   Widget build(BuildContext context) {
+    final title = post.mediaType == FeedMediaType.video ? 'VIDÉO' : 'PHOTO';
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
@@ -751,27 +731,37 @@ class _HighlightCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset('assets/images/bg-stadium.jpg', fit: BoxFit.cover),
+            if (post.mediaType == FeedMediaType.image)
+              Image.network(
+                post.mediaUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    Image.asset('assets/images/bg-stadium.jpg', fit: BoxFit.cover),
+              )
+            else
+              Image.asset('assets/images/bg-stadium.jpg', fit: BoxFit.cover),
             Container(color: const Color(0x66000000)),
-            Center(
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0x33FFFFFF),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0x4DFFFFFF)),
-                ),
-                child: const Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 28,
+            if (post.mediaType == FeedMediaType.video)
+              Center(
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0x33FFFFFF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0x4DFFFFFF)),
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                 ),
               ),
-            ),
             Positioned(
               left: 12,
               bottom: 12,
+              right: 12,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -779,7 +769,11 @@ class _HighlightCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(
-                  title,
+                  post.caption?.trim().isNotEmpty == true
+                      ? post.caption!.trim()
+                      : title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -790,6 +784,45 @@ class _HighlightCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LockedPerformance extends StatelessWidget {
+  const _LockedPerformance({required this.onUpgrade});
+
+  final VoidCallback onUpgrade;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: TalentPublicProfileScreen._surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0x33FE6B00)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Réservé à l\'abonnement PRO (2 000 FCFA / mois).',
+            style: GoogleFonts.inter(
+              color: TalentPublicProfileScreen._textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: onUpgrade,
+            style: FilledButton.styleFrom(
+              backgroundColor: TalentPublicProfileScreen._orange,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('VOIR L\'OFFRE PRO'),
+          ),
+        ],
       ),
     );
   }
@@ -818,7 +851,7 @@ class _StatBar extends StatelessWidget {
             ),
             const Spacer(),
             Text(
-              '$value',
+              '$value/10',
               style: GoogleFonts.montserrat(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -831,7 +864,7 @@ class _StatBar extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: LinearProgressIndicator(
-            value: value / 100,
+            value: value / 10,
             minHeight: 6,
             backgroundColor: const Color(0xFF333535),
             color: TalentPublicProfileScreen._mint,
