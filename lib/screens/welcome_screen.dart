@@ -48,7 +48,7 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 15),
                   Text(
-                    'TALENTFOOT',
+                    'TALENTFOOTPRO',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.montserrat(
                       fontSize: 22,
@@ -58,7 +58,7 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'CONNECT',
+                    'CONNEXION',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.montserrat(
                       fontSize: 44.5,

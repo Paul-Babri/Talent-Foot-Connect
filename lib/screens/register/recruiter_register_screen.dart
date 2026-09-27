@@ -19,6 +19,7 @@ class _RecruiterRegisterScreenState extends State<RecruiterRegisterScreen> {
     'Agent',
     'Directeur sportif',
     'Recruteur club',
+    'Club professionnel',
     'Autre',
   ];
 
@@ -148,7 +149,7 @@ class _RecruiterRegisterScreenState extends State<RecruiterRegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const StepTitle(
-          title: 'Identité recruteur',
+          title: 'Identité',
           subtitle: 'Crée ton compte pour scouter les talents.',
         ),
         const SizedBox(height: 28),
@@ -206,7 +207,7 @@ class _RecruiterRegisterScreenState extends State<RecruiterRegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const StepTitle(
-          title: 'Profil recruteur',
+          title: 'Profil',
           subtitle: 'Indique ton pays et ce que tu recherches.',
         ),
         const SizedBox(height: 28),

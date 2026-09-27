@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
     <application
-        android:label="talent_foot_connect"
+        android:label="TalentFootPro"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

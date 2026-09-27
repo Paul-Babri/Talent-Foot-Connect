@@ -100,7 +100,7 @@ class TalentPublicProfileScreen extends StatelessWidget {
             ),
           ),
           Text(
-            'TALENT FOOT',
+            'TALENT FOOT PRO',
             style: GoogleFonts.montserrat(
               fontSize: 22,
               fontWeight: FontWeight.w700,

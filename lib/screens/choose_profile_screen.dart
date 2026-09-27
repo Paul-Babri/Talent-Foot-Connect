@@ -49,7 +49,7 @@ class ChooseProfileScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 20),
                           Text(
-                            'BIENVENUE SUR TALENTFOOT CONNECT',
+                            'BIENVENUE SUR TALENTFOOTPRO CONNEXION',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.jetBrainsMono(
                               fontSize: 14,
@@ -72,7 +72,7 @@ class ChooseProfileScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Ton réseau professionnel du football.',
+                            'Crée ton profil',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 16,
@@ -87,7 +87,7 @@ class ChooseProfileScreen extends StatelessWidget {
                             iconBg: const Color(0x33A1D494),
                             iconBorder: const Color(0x4DA1D494),
                             iconColor: _mint,
-                            title: 'Je suis un\nJoueur',
+                            title: 'Joueur',
                             subtitle:
                                 'Crée ton profil, partage tes\nstats et trouve ton futur\nclub.',
                             onTap: () {
@@ -106,7 +106,7 @@ class ChooseProfileScreen extends StatelessWidget {
                             iconColor: _orangeSoft,
                             title: 'Académie',
                             subtitle:
-                                'Recherchez les meilleurs talents\navec des données précises.',
+                                'Recherchez et valorisez les meilleurs talents pour votre académie.',
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
@@ -121,9 +121,9 @@ class ChooseProfileScreen extends StatelessWidget {
                             iconBg: const Color(0x33A1D494),
                             iconBorder: const Color(0x4DA1D494),
                             iconColor: _mint,
-                            title: 'Recruteur',
+                            title: 'Recruteur  / Club',
                             subtitle:
-                                'Recherchez les meilleurs talents\navec des données précises.',
+                                'Facilitez la recherche de nouveaux talents et identifiez plus rapidement vos profils.',
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
