@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 import 'package:talent_foot_connect/models/feed_post.dart';
 import 'package:talent_foot_connect/models/talent_public_profile.dart';
 import 'package:talent_foot_connect/screens/offers_screen.dart';
+import 'package:talent_foot_connect/services/talent_pdf.dart';
 import 'package:talent_foot_connect/services/talent_service.dart';
 import 'package:talent_foot_connect/widgets/pro_locked_notice.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class TalentPublicProfileScreen extends StatelessWidget {
   const TalentPublicProfileScreen({super.key, required this.profile});
@@ -73,7 +75,7 @@ class TalentPublicProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(bottomPad),
+      bottomNavigationBar: _buildBottomBar(context, bottomPad),
     );
   }
 
@@ -282,16 +284,26 @@ class TalentPublicProfileScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _contact() async {
-    final url = profile.whatsappUrl;
-    if (url == null) return;
+  Future<void> _contact(BuildContext context) async {
     try {
       await TalentService().recordContact(profile.playerId);
     } catch (_) {}
-    await launchUrl(
-      Uri.parse(url),
-      mode: LaunchMode.externalApplication,
+    final opened = await openWhatsapp(
+      phone: platformAdminPhone,
+      message:
+          'Bonjour, je suis intéressé par le profil de ${profile.name} sur TalentFoot Connect.',
     );
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Impossible d\'ouvrir WhatsApp.',
+            style: GoogleFonts.inter(),
+          ),
+          backgroundColor: const Color(0xFF333535),
+        ),
+      );
+    }
   }
 
   void _openPhotoViewer(BuildContext context) {
@@ -573,7 +585,15 @@ class TalentPublicProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomBar(double bottomPad) {
+  void _openPdf(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _TalentPdfPreviewPage(profile: profile),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context, double bottomPad) {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPad),
       decoration: const BoxDecoration(
@@ -590,7 +610,7 @@ class TalentPublicProfileScreen extends StatelessWidget {
             child: SizedBox(
               height: 54,
               child: OutlinedButton(
-                onPressed: () {},
+                onPressed: () => _openPdf(context),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: const BorderSide(color: Color(0x1AFFFFFF)),
@@ -616,7 +636,7 @@ class TalentPublicProfileScreen extends StatelessWidget {
             child: SizedBox(
               height: 54,
               child: FilledButton(
-                onPressed: profile.whatsappUrl == null ? null : _contact,
+                onPressed: () => _contact(context),
                 style: FilledButton.styleFrom(
                   backgroundColor: _orange,
                   foregroundColor: Colors.black,
@@ -636,6 +656,52 @@ class TalentPublicProfileScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TalentPdfPreviewPage extends StatelessWidget {
+  const _TalentPdfPreviewPage({required this.profile});
+
+  final TalentPublicProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: TalentPublicProfileScreen._bg,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0C0F0F),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          'Fiche PDF',
+          style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+        ),
+      ),
+      body: PdfPreview(
+        build: (_) => buildTalentProfilePdf(profile),
+        pdfFileName: talentPdfFileName(profile.name),
+        initialPageFormat: PdfPageFormat.a4,
+        canChangeOrientation: false,
+        canChangePageFormat: false,
+        canDebug: false,
+        scrollViewDecoration: const BoxDecoration(
+          color: TalentPublicProfileScreen._bg,
+        ),
+        loadingWidget: const Center(
+          child: CircularProgressIndicator(color: TalentPublicProfileScreen._orange),
+        ),
+        onError: (context, error) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Impossible de générer le PDF.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(color: TalentPublicProfileScreen._textSecondary),
+            ),
+          ),
+        ),
       ),
     );
   }

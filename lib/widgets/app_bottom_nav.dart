@@ -40,12 +40,13 @@ class AppBottomNav extends StatelessWidget {
             active: current == AppTab.search,
             onTap: () => onChanged(AppTab.search),
           ),
-          _NavItem(
-            label: 'Messages',
-            icon: Icons.chat_bubble_outline,
-            active: current == AppTab.messages,
-            onTap: () => onChanged(AppTab.messages),
-          ),
+          // TODO: add messages later
+          // _NavItem(
+          //   label: 'Messages',
+          //   icon: Icons.chat_bubble_outline,
+          //   active: current == AppTab.messages,
+          //   onTap: () => onChanged(AppTab.messages),
+          // ),
           _NavItem(
             label: 'Profil',
             icon: Icons.person_outline,

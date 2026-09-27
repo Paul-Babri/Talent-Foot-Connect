@@ -18,7 +18,9 @@ class _SearchScreenState extends State<SearchScreen> {
   late Future<List<SearchPlayer>> _future = _search.search();
 
   void _reload() {
-    setState(() => _future = _search.search(position: _position));
+    setState(() {
+      _future = _search.search(position: _position);
+    });
   }
 
   Future<void> _open(SearchPlayer player) async {

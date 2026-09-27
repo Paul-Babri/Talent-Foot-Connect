@@ -582,6 +582,24 @@ class _FollowedPlayersState extends State<_FollowedPlayers> {
   }
 }
 
+Future<void> _openAdminWhatsapp(BuildContext context) async {
+  final opened = await openWhatsapp(
+    phone: platformAdminPhone,
+    message: 'Bonjour, je vous contacte depuis TalentFoot Connect.',
+  );
+  if (!opened && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Impossible d\'ouvrir WhatsApp.',
+          style: GoogleFonts.inter(),
+        ),
+        backgroundColor: const Color(0xFF333535),
+      ),
+    );
+  }
+}
+
 class _Management extends StatelessWidget {
   const _Management();
 
@@ -611,10 +629,11 @@ class _Management extends StatelessWidget {
           subtitle: 'Gérer l\'usage des données et l\'anonymat scout',
         ),
         const SizedBox(height: 12),
-        const _SettingsLink(
+        _SettingsLink(
           icon: Icons.help_outline,
-          title: 'Aide & Support',
-          subtitle: 'Guides de scouting et assistance technique',
+          title: 'Nous contacter',
+          subtitle: 'Nous contacter pour toute question ou suggestion',
+          onTap: () => _openAdminWhatsapp(context),
         ),
       ],
     );

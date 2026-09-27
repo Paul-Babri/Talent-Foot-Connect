@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talent_foot_connect/models/feed_post.dart';
 import 'package:talent_foot_connect/models/talent_public_profile.dart';
 import 'package:talent_foot_connect/services/social_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PlayerPerformance {
   const PlayerPerformance({
@@ -63,24 +64,6 @@ class TalentService {
         .select('acceleration, finishing, dribble, vision')
         .eq('player_id', playerId)
         .maybeSingle();
-
-    String? whatsappUrl;
-    if (me != null) {
-      final viewer = await _client
-          .from('profiles')
-          .select('role')
-          .eq('id', me)
-          .maybeSingle();
-      final role = viewer?['role'] as String?;
-      if (role == 'academy' || role == 'recruiter') {
-        final phoneRow = await _client
-            .from('profiles')
-            .select('phone')
-            .eq('id', playerId)
-            .maybeSingle();
-        whatsappUrl = whatsappLink(phoneRow?['phone'] as String?);
-      }
-    }
 
     final row = Map<String, dynamic>.from(player);
     final entitlement = _asMap(row['player_entitlements']);
@@ -160,7 +143,6 @@ class TalentService {
       verified: profileRow?['verified'] as bool? ?? false,
       isPro: isPro,
       photoUrl: row['photo_url'] as String?,
-      whatsappUrl: whatsappUrl,
     );
   }
 
@@ -248,13 +230,49 @@ class TalentService {
   }
 }
 
+const platformAdminPhone = '0173221661';
+
 String? whatsappLink(String? phone) {
+  final digits = whatsappDigits(phone);
+  if (digits == null) return null;
+  return 'https://wa.me/$digits';
+}
+
+String? whatsappDigits(String? phone) {
   if (phone == null) return null;
   var digits = phone.replaceAll(RegExp(r'\D'), '');
   if (digits.startsWith('00')) digits = digits.substring(2);
   if (digits.startsWith('0') && digits.length == 10) {
-    digits = '225${digits.substring(1)}';
+    digits = '225$digits';
   }
   if (digits.length < 8) return null;
-  return 'https://wa.me/$digits';
+  return digits;
+}
+
+Future<bool> openWhatsapp({required String phone, String? message}) async {
+  final number = whatsappDigits(phone);
+  if (number == null) return false;
+
+  final text = message?.trim();
+  final encoded = (text == null || text.isEmpty) ? '' : Uri.encodeComponent(text);
+  final native = Uri.parse(
+    encoded.isEmpty
+        ? 'whatsapp://send?phone=$number'
+        : 'whatsapp://send?phone=$number&text=$encoded',
+  );
+  final web = Uri.parse(
+    encoded.isEmpty ? 'https://wa.me/$number' : 'https://wa.me/$number?text=$encoded',
+  );
+
+  try {
+    if (await canLaunchUrl(native)) {
+      return launchUrl(native, mode: LaunchMode.externalApplication);
+    }
+  } catch (_) {}
+
+  try {
+    return await launchUrl(web, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    return false;
+  }
 }

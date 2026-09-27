@@ -19,7 +19,6 @@ class TalentPublicProfile {
     required this.isPro,
     this.description,
     this.photoUrl,
-    this.whatsappUrl,
   });
 
   final String playerId;
@@ -39,7 +38,6 @@ class TalentPublicProfile {
   final bool verified;
   final bool isPro;
   final String? photoUrl;
-  final String? whatsappUrl;
 
   String get prospectLabel => isPro ? 'PRO' : 'JOUEUR';
 }
