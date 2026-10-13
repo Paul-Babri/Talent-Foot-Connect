@@ -30,13 +30,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      showAppSnack(context, 'E-mail et mot de passe requis.');
+      showAppSnack(context, 'Nom et mot de passe requis.');
       return;
     }
 
     setState(() => _loading = true);
     try {
-      await _auth.signIn(email: _email.text.trim(), password: _password.text);
+      await _auth.signInWithLogin(
+        login: _email.text.trim(),
+        password: _password.text,
+      );
       if (!mounted) return;
       await showAppSuccess(
         context,
@@ -110,15 +113,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const StepTitle(
                     title: 'Bon retour',
-                    subtitle: 'Connecte-toi pour accéder à TalentFoot Connect.',
+                    subtitle:
+                        'Connecte-toi avec le nom et le prénom du compte. Un e-mail fonctionne aussi.',
                   ),
                   const SizedBox(height: 32),
                   LabeledField(
-                    label: 'E-MAIL',
+                    label: 'NOM ET PRÉNOM',
                     child: AppTextField(
                       controller: _email,
-                      hint: 'toi@email.com',
-                      keyboardType: TextInputType.emailAddress,
+                      hint: 'Jean Kouassi',
+                      textCapitalization: TextCapitalization.words,
                     ),
                   ),
                   const SizedBox(height: 12),

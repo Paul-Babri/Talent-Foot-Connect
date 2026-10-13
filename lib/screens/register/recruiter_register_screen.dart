@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talent_foot_connect/screens/main_shell.dart';
 import 'package:talent_foot_connect/services/auth_service.dart';
@@ -34,6 +37,7 @@ class _RecruiterRegisterScreenState extends State<RecruiterRegisterScreen> {
 
   int _step = 0;
   String? _type;
+  File? _photo;
   bool _loading = false;
 
   @override
@@ -48,15 +52,25 @@ class _RecruiterRegisterScreenState extends State<RecruiterRegisterScreen> {
     super.dispose();
   }
 
+  Future<void> _pickPhoto() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (file != null) setState(() => _photo = File(file.path));
+  }
+
   bool _validateStep() {
     if (_step == 0) {
-      if (_name.text.trim().isEmpty ||
-          _email.text.trim().isEmpty ||
-          _password.text.length < 6) {
+      if (_name.text.trim().isEmpty || _password.text.length < 6) {
         showAppSnack(
           context,
-          'Nom, e-mail et mot de passe (6+ caractères) requis.',
+          'Nom et mot de passe (6+ caractères) requis.',
         );
+        return false;
+      }
+      if (_email.text.trim().isNotEmpty && !_email.text.contains('@')) {
+        showAppSnack(context, 'E-mail invalide.');
         return false;
       }
     }
@@ -84,6 +98,7 @@ class _RecruiterRegisterScreenState extends State<RecruiterRegisterScreen> {
         country: _emptyToNull(_country.text),
         description: _emptyToNull(_description.text),
         besoins: _emptyToNull(_besoins.text),
+        photo: _photo,
       );
       if (!mounted) return;
       await showAppSuccess(
@@ -163,10 +178,10 @@ class _RecruiterRegisterScreenState extends State<RecruiterRegisterScreen> {
         ),
         const SizedBox(height: 12),
         LabeledField(
-          label: 'E-MAIL *',
+          label: 'E-MAIL',
           child: AppTextField(
             controller: _email,
-            hint: 'toi@email.com',
+            hint: 'Optionnel — connexion avec le nom',
             keyboardType: TextInputType.emailAddress,
           ),
         ),
@@ -208,9 +223,17 @@ class _RecruiterRegisterScreenState extends State<RecruiterRegisterScreen> {
       children: [
         const StepTitle(
           title: 'Profil',
-          subtitle: 'Indique ton pays et ce que tu recherches.',
+          subtitle: 'Photo, pays et ce que tu recherches.',
         ),
         const SizedBox(height: 28),
+        MediaPickCard(
+          title: 'Ajouter une photo de profil',
+          subtitle: 'JPG ou PNG',
+          icon: Icons.add_a_photo_outlined,
+          file: _photo,
+          onTap: _pickPhoto,
+        ),
+        const SizedBox(height: 16),
         LabeledField(
           label: 'PAYS',
           child: AppTextField(controller: _country, hint: 'France'),

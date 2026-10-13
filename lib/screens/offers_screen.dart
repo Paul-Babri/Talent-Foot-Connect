@@ -16,19 +16,84 @@ class _OffersScreenState extends State<OffersScreen> {
   final _purchases = PurchaseService();
   Offer? _busy;
 
+  Future<String?> _askPhone() async {
+    final controller = TextEditingController();
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(
+            'Mobile money',
+            style: GoogleFonts.montserrat(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.phone,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: const InputDecoration(
+              hintText: '07 00 00 00 00',
+              hintStyle: TextStyle(color: AppColors.textMuted),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Payer'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    return phone;
+  }
+
   Future<void> _buy(Offer offer) async {
+    final phone = await _askPhone();
+    if (phone == null || phone.trim().isEmpty || !mounted) return;
+
     setState(() => _busy = offer);
     try {
       final purchase = await _purchases.createPending(offer);
-      if (!mounted) return;
-      await showAppSuccess(
-        context,
-        title: 'Demande enregistrée',
-        message:
-            'Paiement ${offer.priceLabel} en attente (Wave ou Orange Money). '
-            'Référence ${purchase.id}. '
-            'Le partenaire d\'encaissement confirmera la transaction.',
+      var payment = await _purchases.payWithPawapay(
+        purchaseId: purchase.id,
+        phone: phone.trim(),
       );
+      for (var attempt = 0; attempt < 20 && payment.pending && mounted; attempt++) {
+        await Future<void>.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
+        payment = await _purchases.refreshPawapay(purchase.id);
+      }
+      if (!mounted) return;
+      if (payment.paid) {
+        await showAppSuccess(
+          context,
+          title: 'Paiement confirmé',
+          message: '${offer.title} est activé sur ton compte.',
+        );
+      } else if (payment.failed) {
+        await showAppError(
+          context,
+          payment.message ?? 'Le paiement a été refusé.',
+        );
+      } else {
+        await showAppSuccess(
+          context,
+          title: 'Paiement en attente',
+          message:
+              'Valide la demande sur ton téléphone. '
+              'L\'offre sera activée dès que le paiement est confirmé.',
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       await showAppError(context, mapAuthError(e));
@@ -53,7 +118,7 @@ class _OffersScreenState extends State<OffersScreen> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           Text(
-            'Le pack gratuit inclut 3 vidéos et 10 photos. Les vidéos supplémentaires et le PRO passent par mobile money.',
+            'Le pack gratuit inclut 3 vidéos et 10 photos. Les offres se paient par mobile money (Orange, MTN, Wave) via pawaPay.',
             style: GoogleFonts.inter(color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 20),

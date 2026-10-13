@@ -111,23 +111,30 @@ class SocialService {
   }
 
   Future<List<FeedComment>> commentsFor(String postId) async {
+    try {
+      final rows = await _client.rpc(
+        'comments_for_post',
+        params: {'p_post_id': postId},
+      );
+      if (rows is List) return _mapComments(rows);
+    } catch (_) {}
+
     final rows = await _client
         .from('feed_comments')
-        .select('id, author_id, body, created_at, profiles(email)')
+        .select('id, author_id, body, created_at')
         .eq('post_id', postId)
         .order('created_at');
+    return _mapComments(rows as List);
+  }
+
+  List<FeedComment> _mapComments(List<dynamic> rows) {
     final uid = _uid;
-    return (rows as List).map((raw) {
+    return rows.map((raw) {
       final row = Map<String, dynamic>.from(raw as Map);
-      final profile = row['profiles'];
-      String name = 'Membre';
-      if (profile is Map && profile['email'] is String) {
-        final email = profile['email'] as String;
-        name = email.contains('@') ? email.split('@').first : email;
-      }
+      final name = (row['author_name'] as String?)?.trim();
       return FeedComment(
         id: row['id'] as String,
-        authorName: name,
+        authorName: (name == null || name.isEmpty) ? 'Membre' : name,
         body: row['body'] as String? ?? '',
         createdAt:
             DateTime.tryParse(row['created_at'] as String? ?? '') ??

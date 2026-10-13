@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talent_foot_connect/theme/app_colors.dart';
 
-class RegisterScaffold extends StatelessWidget {
+class RegisterScaffold extends StatefulWidget {
   const RegisterScaffold({
     super.key,
     required this.stepIndex,
@@ -22,6 +22,30 @@ class RegisterScaffold extends StatelessWidget {
   final String footerHint;
 
   @override
+  State<RegisterScaffold> createState() => _RegisterScaffoldState();
+}
+
+class _RegisterScaffoldState extends State<RegisterScaffold> {
+  final _scroll = ScrollController();
+
+  @override
+  void didUpdateWidget(RegisterScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stepIndex == widget.stepIndex) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.jumpTo(0);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -30,17 +54,21 @@ class RegisterScaffold extends StatelessWidget {
           const RegisterHeader(),
           Expanded(
             child: SingleChildScrollView(
+              controller: _scroll,
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  RegisterProgress(currentIndex: stepIndex, labels: stepLabels),
+                  RegisterProgress(
+                    currentIndex: widget.stepIndex,
+                    labels: widget.stepLabels,
+                  ),
                   const SizedBox(height: 28),
-                  child,
+                  widget.child,
                   const SizedBox(height: 16),
                   Center(
                     child: Text(
-                      footerHint,
+                      widget.footerHint,
                       textAlign: TextAlign.center,
                       style: GoogleFonts.jetBrainsMono(
                         fontSize: 11,
@@ -636,7 +664,10 @@ String mapAuthError(Object error) {
         'garde Email ON, Confirm email OFF, et Allow new users to sign up ON.';
   }
   if (lower.contains('already registered') || lower.contains('already been')) {
-    return 'Cet e-mail est déjà utilisé. Connecte-toi ou utilise une autre adresse.';
+    return 'Ce compte existe déjà. Connecte-toi, ou choisis un autre nom.';
+  }
+  if (lower.contains('invalid login') || lower.contains('invalid credentials')) {
+    return 'Nom ou mot de passe incorrect.';
   }
   if (lower.contains('network') || lower.contains('socket')) {
     return 'Pas de connexion réseau. Vérifie ta connexion internet.';

@@ -42,7 +42,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
     try {
       await _social.addComment(postId: widget.postId, body: text);
       _body.clear();
-      setState(() => _future = _social.commentsFor(widget.postId));
+      setState(() {
+        _future = _social.commentsFor(widget.postId);
+      });
     } catch (e) {
       if (!mounted) return;
       await showAppError(context, mapAuthError(e));
@@ -122,16 +124,40 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   Expanded(
                     child: TextField(
                       controller: _body,
+                      minLines: 1,
+                      maxLines: 4,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: _sending ? null : (_) => _send(),
                       style: const TextStyle(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
-                        hintText: 'Commenter sans numéro',
-                        hintStyle: TextStyle(color: AppColors.textMuted),
+                      decoration: InputDecoration(
+                        hintText: 'Écrire un commentaire',
+                        hintStyle: const TextStyle(color: AppColors.textMuted),
+                        filled: true,
+                        fillColor: AppColors.surface,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   IconButton(
                     onPressed: _sending ? null : _send,
-                    icon: const Icon(Icons.send, color: AppColors.orange),
+                    icon: _sending
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.orange,
+                            ),
+                          )
+                        : const Icon(Icons.send, color: AppColors.orange),
                   ),
                 ],
               ),

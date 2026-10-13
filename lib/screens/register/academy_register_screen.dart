@@ -68,13 +68,15 @@ class _AcademyRegisterScreenState extends State<AcademyRegisterScreen> {
 
   bool _validateStep() {
     if (_step == 0) {
-      if (_name.text.trim().isEmpty ||
-          _email.text.trim().isEmpty ||
-          _password.text.length < 6) {
+      if (_name.text.trim().isEmpty || _password.text.length < 6) {
         showAppSnack(
           context,
-          'Nom, e-mail et mot de passe (6+ caractères) requis.',
+          'Nom et mot de passe (6+ caractères) requis.',
         );
+        return false;
+      }
+      if (_email.text.trim().isNotEmpty && !_email.text.contains('@')) {
+        showAppSnack(context, 'E-mail invalide.');
         return false;
       }
     }
@@ -183,10 +185,10 @@ class _AcademyRegisterScreenState extends State<AcademyRegisterScreen> {
         ),
         const SizedBox(height: 12),
         LabeledField(
-          label: 'E-MAIL *',
+          label: 'E-MAIL',
           child: AppTextField(
             controller: _email,
-            hint: 'contact@academie.com',
+            hint: 'Optionnel — connexion avec le nom',
             keyboardType: TextInputType.emailAddress,
           ),
         ),

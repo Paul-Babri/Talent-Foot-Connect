@@ -1,6 +1,24 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talent_foot_connect/billing/offers.dart';
 
+class PawapayPayment {
+  const PawapayPayment({required this.status, this.message});
+
+  final String status;
+  final String? message;
+
+  bool get paid => status == 'paid';
+  bool get failed => status == 'failed';
+  bool get pending => !paid && !failed;
+
+  factory PawapayPayment.fromJson(Map<String, dynamic> json) {
+    return PawapayPayment(
+      status: json['status'] as String? ?? 'pending',
+      message: json['message'] as String?,
+    );
+  }
+}
+
 class PurchaseRecord {
   const PurchaseRecord({
     required this.id,
@@ -22,6 +40,39 @@ class PurchaseService {
       : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
+
+  Future<PawapayPayment> payWithPawapay({
+    required String purchaseId,
+    required String phone,
+  }) {
+    return _invokePawapay({'purchaseId': purchaseId, 'phone': phone});
+  }
+
+  Future<PawapayPayment> refreshPawapay(String purchaseId) {
+    return _invokePawapay({'purchaseId': purchaseId});
+  }
+
+  Future<PawapayPayment> _invokePawapay(Map<String, dynamic> body) async {
+    try {
+      final response = await _client.functions.invoke(
+        'pawapay-deposit',
+        body: body,
+      );
+      final data = response.data;
+      if (data is Map) {
+        return PawapayPayment.fromJson(Map<String, dynamic>.from(data));
+      }
+      throw const AuthException('Réponse de paiement invalide.');
+    } on FunctionException catch (error) {
+      final details = error.details;
+      if (details is Map && details['error'] is String) {
+        throw AuthException(details['error'] as String);
+      }
+      throw AuthException(
+        'Paiement mobile money indisponible (${error.status}).',
+      );
+    }
+  }
 
   Future<PurchaseRecord> createPending(Offer offer) async {
     final uid = _client.auth.currentUser?.id;

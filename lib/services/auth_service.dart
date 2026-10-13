@@ -20,6 +20,36 @@ class AuthService {
     return _client.auth.signInWithPassword(email: email, password: password);
   }
 
+  /// Connexion par nom et prénom, ou par e-mail pour les comptes déjà créés ainsi.
+  Future<AuthResponse> signInWithLogin({
+    required String login,
+    required String password,
+  }) async {
+    final value = login.trim();
+    if (value.contains('@')) {
+      return signIn(email: value, password: password);
+    }
+
+    try {
+      return await signIn(email: loginEmailFromName(value), password: password);
+    } on AuthException {
+      final resolved = await _resolveLoginEmail(value);
+      if (resolved == null || resolved == loginEmailFromName(value)) rethrow;
+      return signIn(email: resolved, password: password);
+    }
+  }
+
+  Future<String?> _resolveLoginEmail(String name) async {
+    try {
+      final result = await _client.rpc(
+        'resolve_login_email',
+        params: {'p_login': name},
+      );
+      if (result is String && result.trim().isNotEmpty) return result.trim();
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> signOut() => _client.auth.signOut();
 
   Future<AuthResponse> signUpPlayer({
@@ -41,8 +71,9 @@ class AuthService {
     File? photo,
     File? video,
   }) async {
+    final authEmail = resolveAuthEmail(name: name, email: email);
     final response = await _signUp(
-      email: email,
+      email: authEmail,
       password: password,
       role: AppRole.player,
       data: {
@@ -70,7 +101,7 @@ class AuthService {
     }
 
     // Ensure session is active for RLS writes (media + upsert).
-    await _ensureSession(email: email, password: password, response: response);
+    await _ensureSession(email: authEmail, password: password, response: response);
 
     String? photoUrl;
     String? videoUrl;
@@ -113,7 +144,7 @@ class AuthService {
     await _client
         .from('profiles')
         .update({
-          'email': email.trim(),
+          if (email.trim().isNotEmpty) 'email': email.trim(),
           'phone': phone.trim(),
         })
         .eq('id', userId);
@@ -133,8 +164,9 @@ class AuthService {
     File? photo,
     File? video,
   }) async {
+    final authEmail = resolveAuthEmail(name: name, email: email);
     final response = await _signUp(
-      email: email,
+      email: authEmail,
       password: password,
       role: AppRole.academy,
       data: {
@@ -153,7 +185,7 @@ class AuthService {
       );
     }
 
-    await _ensureSession(email: email, password: password, response: response);
+    await _ensureSession(email: authEmail, password: password, response: response);
 
     String? logoUrl;
     String? photoUrl;
@@ -198,7 +230,7 @@ class AuthService {
     await _client
         .from('profiles')
         .update({
-          'email': email.trim(),
+          if (email.trim().isNotEmpty) 'email': email.trim(),
           if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
         })
         .eq('id', userId);
@@ -215,9 +247,11 @@ class AuthService {
     String? country,
     String? description,
     String? besoins,
+    File? photo,
   }) async {
+    final authEmail = resolveAuthEmail(name: name, email: email);
     final response = await _signUp(
-      email: email,
+      email: authEmail,
       password: password,
       role: AppRole.recruiter,
       data: {
@@ -237,7 +271,17 @@ class AuthService {
       );
     }
 
-    await _ensureSession(email: email, password: password, response: response);
+    await _ensureSession(email: authEmail, password: password, response: response);
+
+    String? photoUrl;
+    if (photo != null) {
+      photoUrl = await _uploadFile(
+        bucket: 'avatars',
+        userId: userId,
+        file: photo,
+        fileName: 'avatar${_ext(photo.path)}',
+      );
+    }
 
     final payload = <String, dynamic>{
       'id': userId,
@@ -246,13 +290,14 @@ class AuthService {
       'country': country,
       'description': description,
       'besoins': besoins,
+      if (photoUrl != null) 'photo_url': photoUrl,
     }..removeWhere((_, value) => value == null);
 
     await _client.from('recruiter_profiles').upsert(payload);
     await _client
         .from('profiles')
         .update({
-          'email': email.trim(),
+          if (email.trim().isNotEmpty) 'email': email.trim(),
           if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
         })
         .eq('id', userId);
@@ -266,22 +311,37 @@ class AuthService {
     required AppRole role,
     Map<String, dynamic> data = const {},
   }) async {
-    final response = await _client.auth.signUp(
-      email: email.trim(),
-      password: password,
-      data: {
-        'role': role.dbValue,
-        ...data,
-      },
-    );
+    final AuthResponse response;
+    try {
+      response = await _client.auth.signUp(
+        email: email.trim(),
+        password: password,
+        data: {
+          'role': role.dbValue,
+          'login_name': loginSlug((data['name'] as String?) ?? email),
+          ...data,
+        },
+      );
+    } on AuthException catch (error) {
+      final lower = error.message.toLowerCase();
+      if (_isGeneratedLogin(email) &&
+          (lower.contains('already registered') || lower.contains('already been'))) {
+        throw const AuthException(
+          'Ce nom est déjà utilisé. Précise le nom et le prénom, ou ajoute un e-mail.',
+        );
+      }
+      rethrow;
+    }
 
     if (response.user != null && response.session == null) {
-      // Trigger already created DB rows from metadata.
-      // Ask user to sign in after confirming email if required.
-      throw const AuthException(
-        'Compte créé. Si la confirmation e-mail est activée, '
-        'ouvre le lien reçu puis connecte-toi. '
-        'Sinon, reconnecte-toi avec ton e-mail et mot de passe.',
+      throw AuthException(
+        _isGeneratedLogin(email)
+            ? 'Compte créé, mais la session n\'est pas ouverte. '
+                'Désactive la confirmation e-mail dans Supabase, '
+                'puis connecte-toi avec ton nom et prénom.'
+            : 'Compte créé. Si la confirmation e-mail est activée, '
+                'ouvre le lien reçu puis connecte-toi. '
+                'Sinon, reconnecte-toi avec ton e-mail et mot de passe.',
       );
     }
 
@@ -320,4 +380,47 @@ class AuthService {
     if (i < 0) return '';
     return path.substring(i).toLowerCase();
   }
+}
+
+bool _isGeneratedLogin(String email) => email.endsWith('@login.talentfoot.app');
+
+String resolveAuthEmail({required String name, required String email}) {
+  final trimmed = email.trim();
+  if (trimmed.isEmpty) return loginEmailFromName(name);
+  return trimmed;
+}
+
+String loginEmailFromName(String name) => '${loginSlug(name)}@login.talentfoot.app';
+
+String loginSlug(String name) {
+  const accents = {
+    'à': 'a',
+    'á': 'a',
+    'â': 'a',
+    'ä': 'a',
+    'ã': 'a',
+    'é': 'e',
+    'è': 'e',
+    'ê': 'e',
+    'ë': 'e',
+    'ï': 'i',
+    'î': 'i',
+    'ì': 'i',
+    'ô': 'o',
+    'ö': 'o',
+    'ò': 'o',
+    'ù': 'u',
+    'û': 'u',
+    'ü': 'u',
+    'ç': 'c',
+    'ñ': 'n',
+  };
+  var slug = name.trim().toLowerCase();
+  for (final entry in accents.entries) {
+    slug = slug.replaceAll(entry.key, entry.value);
+  }
+  slug = slug.replaceAll(RegExp(r'[^a-z0-9]+'), '.');
+  slug = slug.replaceAll(RegExp(r'\.+'), '.');
+  slug = slug.replaceAll(RegExp(r'^\.|\.$'), '');
+  return slug.isEmpty ? 'joueur' : slug;
 }

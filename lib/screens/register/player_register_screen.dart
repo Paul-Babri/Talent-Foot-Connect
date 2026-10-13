@@ -105,12 +105,15 @@ class _PlayerRegisterScreenState extends State<PlayerRegisterScreen> {
       if (_name.text.trim().isEmpty ||
           _age.text.trim().isEmpty ||
           _phone.text.trim().isEmpty ||
-          _email.text.trim().isEmpty ||
           _password.text.length < 6) {
         showAppSnack(
           context,
-          'Nom, âge, téléphone, e-mail et mot de passe (6+ caractères) requis.',
+          'Nom, âge, téléphone et mot de passe (6+ caractères) requis.',
         );
+        return false;
+      }
+      if (_email.text.trim().isNotEmpty && !_email.text.contains('@')) {
+        showAppSnack(context, 'E-mail invalide.');
         return false;
       }
       if (int.tryParse(_age.text.trim()) == null) {
@@ -263,10 +266,10 @@ class _PlayerRegisterScreenState extends State<PlayerRegisterScreen> {
         ),
         const SizedBox(height: 12),
         LabeledField(
-          label: 'E-MAIL *',
+          label: 'E-MAIL',
           child: AppTextField(
             controller: _email,
-            hint: 'toi@email.com',
+            hint: 'Optionnel — connexion avec le nom et prénom',
             keyboardType: TextInputType.emailAddress,
           ),
         ),
